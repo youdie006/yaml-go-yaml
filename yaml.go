@@ -292,6 +292,7 @@ type DepthContext = libyaml.DepthContext
 // Plugins extend the YAML library with custom processing logic.
 // Each plugin implements one or more plugin interfaces.
 // Currently supported plugin types:
+//   - AliasDataPlugin: Controls anchor storage and alias resolution
 //   - LoaderLimitsPlugin: Controls depth and alias expansion limits
 //   - ParserPlugin: Supplies a complete YAML event stream
 //   - TabIndentPlugin: Enables tab-aware loading and tab-indented dumping
@@ -309,6 +310,13 @@ func WithPlugin(plugins ...any) Option {
 		for _, p := range plugins {
 			registered := false
 			if _, ok := p.(nativeParserPlugin); ok {
+				registered = true
+			}
+			if aliases, ok := p.(AliasDataPlugin); ok {
+				if o.AliasData != nil {
+					return errors.New("yaml: multiple alias-data plugins")
+				}
+				o.AliasData = aliases
 				registered = true
 			}
 			if lp, ok := p.(LoaderLimitsPlugin); ok {
@@ -478,6 +486,16 @@ func OptsYAML(yamlStr string) (Option, error) {
 	}
 
 	for name, val := range plugins {
+		// Disabling the default anchor policy rejects references. Other APIs
+		// retain the ordinary host behavior of skipping disabled selections.
+		if name == pluginreg.AliasDataAPI && pluginreg.AliasDataDisabled(val) {
+			p, err := namedPlugin(name, map[string]any{"disable": true})
+			if err != nil {
+				return nil, err
+			}
+			optList = append(optList, WithPlugin(p))
+			continue
+		}
 		var cfgMap map[string]any
 		switch v := val.(type) {
 		case bool:

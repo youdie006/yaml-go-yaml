@@ -52,6 +52,10 @@ type Options struct {
 	// Parser supplies complete events in place of native parsing.
 	Parser ParserPlugin
 
+	// AliasData supplies per-stream anchor policy. Nil selects ordinary
+	// document-scoped anchors, rather than disabling aliases.
+	AliasData AliasDataPlugin
+
 	// IndentConfig enables tab-aware structural indentation.
 	IndentConfig *IndentConfig
 
